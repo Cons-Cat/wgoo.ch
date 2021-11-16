@@ -1,0 +1,12 @@
+:root {
+  --diamond-size: 55px;
+}
+
+.diamond {
+	background-image: url("outlineddiamond.svg");
+	background-repeat: repeat-y;
+	height: 20px;
+	background-position: center;
+	background-size: cover;
+	position: relative;
+}

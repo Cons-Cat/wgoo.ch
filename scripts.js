@@ -7,7 +7,7 @@ class Header extends HTMLElement {
 		this.innerHTML = `
 	<body class="intro-body">
 	<div class="intro-blurb">
-	  This is Conscat's website!
+	  Welcome to my website!
 	</div>
   </body>
 

@@ -1,11 +1,8 @@
-.intro-body {
-	max-width: 960px;
-	margin: auto;
-}
-
 .intro-blurb {
+	max-width: 920px;
+	text-align: left;
 	line-height: 1.5;
-	margin-left: 20px;
+	margin-left: 60px;
 	margin-right: 20px;
 	margin-top: 25px;
 	margin-bottom: 10px;
@@ -41,9 +38,12 @@
 	font-size: 180%;
 }
 
+.blog-header {
+	max-width: 920px;	
+}
+
 .title-box {
 	border-radius: 10px;
-	max-width: 920px;
 	margin-left: 20px;
 	margin-right: 20px;
 	margin-bottom: -15px;
@@ -57,9 +57,9 @@
 
 .datetime {
 	color: gray;
-	max-width: 960px;
-	margin-left: 37px;
 	line-height: 1.0;
+	text-align: left;
+	margin-left: 40px;
 	font-size: 95%;
 }
 

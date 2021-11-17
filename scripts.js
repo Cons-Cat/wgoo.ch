@@ -5,11 +5,10 @@ class Header extends HTMLElement {
 
 	connectedCallback() {
 		this.innerHTML = `
-	<body class="intro-body">
+<center>
 	<div class="intro-blurb">
 	  Welcome to my website!
 	</div>
-  </body>
 
   <header class="site-header">
 	<div class="wrapper site-header__wrapper">
@@ -28,6 +27,7 @@ class Header extends HTMLElement {
 	  <div class="header-item">Item</div>
 	</div>
   </header>
+</center>
 `;
 	}
 }

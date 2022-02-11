@@ -1,6 +1,6 @@
 .block {
   max-width: 800px;
-  line-height: 1.4;
+  line-height: 1.6;
   border-radius: 8px;
   box-shadow: 0px 40px 100px #EFEFEF;
   padding: 1px 10px;
@@ -12,10 +12,10 @@ p {
 	text-align: left;
 }
 
-/* This is identicle to `.block`, except for its width. */
+/* This is identicle to `.block`, except for its width and line-height. */
 .header {
   max-width: 950px;
-  line-height: 1.4;
+  line-height: 1.2;
   background: white;
   border-radius: 8px;
   box-shadow: 0px 40px 100px #EFEFEF;

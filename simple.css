@@ -2,7 +2,7 @@
   max-width: 750px;
   line-height: 1.4;
   border-radius: 8px;
-  box-shadow: 0px 40px 50px #EEEEEE;
+  box-shadow: 0px 40px 100px #EFEFEF;
   padding: 1px 10px;
   background: white;
   margin-bottom: 30px;
@@ -12,13 +12,12 @@ p {
 	text-align: left;
 }
 
-/* This is identicle to `.block`, except for its width and margins. */
+/* This is identicle to `.block`, except for its width. */
 .header {
   max-width: 950px;
-  margin-bottom: 60px;
   line-height: 1.4;
   background: white;
   border-radius: 8px;
-  box-shadow: 0px 40px 50px #EEEEEE;
+  box-shadow: 0px 40px 100px #EFEFEF;
   padding: 10px 15px;
 }

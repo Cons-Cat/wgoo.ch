@@ -27,23 +27,22 @@ p {
 /* This is identicle to `.block`, except for its width and line-height. */
 .project {
 	max-width: 250px;
-	line-height: 0.4;
+	line-height: 1.2;
 	background: white;
 	border-radius: 8px;
 	/* h-offset, v-offset, blur, color */
 	box-shadow: -1px 13px 15px #E0E0E0;
-	height: 23px;
-	/* padding: 8px; */
 	text-align: center;
 }
 
 td {
 	background: white;
     width: 300px;
+    max-width: 300px;
 	/* h-offset, v-offset, blur, color */
 	box-shadow: 0px 15px 20px #E0E0E0;
 	text-align: center;
-	padding: 10px;
+	padding: 8px;
 	display: inline-block;
 }
 

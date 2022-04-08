@@ -1,0 +1,1337 @@
+(eval-and-compile
+  (customize-set-variable
+   'package-archives '(("org" . "https://orgmode.org/elpa/")
+					   ("melpa" . "https://melpa.org/packages/")
+					   ("gnu" . "https://elpa.gnu.org/packages/")))
+  (package-initialize)
+  (unless (package-installed-p 'leaf)
+    (package-refresh-contents)
+    (package-install 'leaf)))
+
+(setq max-lisp-eval-depth 10000) ; default is 500
+;; (setq max-specpdl-size 130000)
+;; (setq max-specpdl-size 50000)  ; default is 1000
+(setq visible-bell nil)
+(setq ring-bell-function 'ignore)
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(pixel-scroll-precision-mode t)
+(setq pixel-scroll-precision-interpolate-page t)
+;;(global-display-line-numbers-mode 1)
+(add-hook 'org-mode-hook #'display-line-numbers-mode)
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
+(setq inhibit-startup-message t
+      inhibit-startup-echo-area-message t)
+(setq gc-cons-threshold 20000000)
+(global-hl-line-mode +1)
+(blink-cursor-mode 0)
+(setq-default indent-tabs-mode nil)
+(tooltip-mode 1)
+(setq-default fill-column 80)
+
+;; This is needed for drawing over top of the stripes-mode overlays.
+;; (load "~/.emacs.d/hl-line+.el")
+;; (setq hl-line-overlay-priority 0)
+
+;; (defun visual-line-range ()
+;;   (save-excursion
+;;     (cons
+;;      (progn (beginning-of-visual-line) (point))
+;;      (progn (end-of-visual-line) (point)))))
+
+;; (setq hl-line-range-function 'visual-line-range)
+
+(leaf doom-modeline
+  :ensure t)
+(doom-modeline-mode 1)
+(setq doom-modeline-vcs-max-length 12)
+(setq doom-modeline-buffer-encoding nil)
+(setq doom-modeline-hud nil)
+(display-battery-mode)
+
+(set-face-underline 'doom-modeline-spc-face nil)
+(set-face-underline 'doom-modeline-info nil)
+(set-face-underline 'doom-modeline-vspc-face nil)
+(setq doom-modeline-continuous-word-count-modes '(markdown-mode text-mode org-mode))
+
+(global-set-key (kbd "C-M-=") #'text-scale-increase)
+(global-set-key (kbd "C-M-+") #'text-scale-decrease)
+
+(global-set-key (kbd "<home>") #'beginning-of-visual-line)
+(global-set-key (kbd "<end>") #'end-of-visual-line)
+
+(winner-mode t)
+(global-set-key (kbd "C-s-<home>") #'winner-undo)
+(global-set-key (kbd "C-s-<end>") #'winner-redo)
+
+(leaf posframe
+  :ensure t)
+(require 'posframe)
+
+;; https://github.com/darkstego/rebinder.el/
+(defun rebinder-dynamic-binding (key &optional toggle)
+  "Act as KEY definition in the current context.
+  This uses an extended menu item's capability of dynamically computing a
+  definition.  This idea came from general.el.
+  TOGGLE changes keymaps associated from Ctrl to regular key and vice versa"
+  `(menu-item
+	,""
+	nil
+	:filter
+	(lambda (&optional _)
+	  ,`(rebinder-key-binding ,key ,toggle))))
+;; should probably use let instead of double call to (car x)
+(defun rebinder-minor-mode-key-binding (key)
+  "Gets list of minor mode keybindings for KEY while ignoring the override map."
+  (let ((active-maps nil))
+	(mapc (lambda (x)
+			(when (and (symbolp (car x)) (symbol-value (car x)))
+			  (add-to-list 'active-maps  (lookup-key (cdr x) (kbd key)))))
+		  minor-mode-map-alist )
+	(make-composed-keymap active-maps)))
+;; might need to do keymap inheretence to perserve priority
+(defun rebinder-key-binding (key &optional toggle)
+  "Get the keymap of associated KEY.
+  If TOGGLE is non-nil then the Ctrl status of all bindings in the returned keymap
+  will be changed."
+  (let ((map (make-composed-keymap (list (rebinder-minor-mode-key-binding key) (local-key-binding (kbd key)) (global-key-binding (kbd key))))))
+	(if toggle
+		(mapcar 'rebinder-toggle-ctrl map)
+	  map)))
+(defun rebinder-toggle-ctrl (item)
+  "Return ITEM key with all Ctrl status of binding toggled."
+  (cond
+   ((and (listp item)
+	     (not (listp (cdr item))))
+	(cons (rebinder-toggle-ctrl (car item)) (cdr item)))
+   ((listp item)
+	(mapcar 'rebinder-toggle-ctrl item))
+   ((event-basic-type item)
+	(let ((mods (event-modifiers item))
+	      (key (event-basic-type item)))
+	  (if (member 'control mods)
+	      (event-convert-list (append (remove 'control mods) (list key)))
+	    (event-convert-list (append (append mods '(control)) (list key))))))
+   (t item)))
+(defvar rebinder-mode-map (make-sparse-keymap))
+(defvar rebinder-link-mode)
+(defvar rebinder-mode)
+(defun rebinder-override ()
+  "Add modemap to override prefix into ‘minor-mode-overriding-map-alist’."
+  (interactive)
+  (add-to-list 'minor-mode-overriding-map-alist (cons 'rebinder-mode rebinder-mode-map)))
+(add-hook 'after-change-major-mode-hook 'rebinder-override)
+;; Remove overrides on mode exit
+(defun rebinder-update-override ()
+  "Update override mode to match linked mode."
+  (setq rebinder-mode (symbol-value rebinder-link-mode)))
+(defun rebinder-hook-to-mode (mode modehook)
+  "Link rebinder override map to associated MODE and MODEHOOK."
+  (setq rebinder-link-mode mode)
+  (add-hook modehook 'rebinder-update-override))
+
+(define-key global-map (kbd "M-e") #'execute-extended-command)
+(define-key global-map (kbd "C-n") (rebinder-dynamic-binding "C-x"))
+(define-key global-map (kbd "M-n") (rebinder-dynamic-binding "C-C"))
+
+(rebinder-hook-to-mode 't 'after-change-major-mode-hook)
+
+(leaf hl-todo
+  :ensure t)
+
+;;TODO: Backward whitespace.
+;; (global-set-key (kbd "C-M-<left>") #');
+(global-set-key (kbd "C-M-<right>") #'forward-whitespace);
+
+;; Fonts
+(set-face-attribute 'default nil
+					:weight 'regular
+					:height 105
+					:font "Gintronic"
+					:italic nil)
+
+(defun set-bigger-spacing ()
+  (interactive)
+  (setq-local default-text-properties '(line-spacing 0.25 line-height 1.45)))
+(add-hook 'text-mode-hook 'set-bigger-spacing)
+(add-hook 'prog-mode-hook 'set-bigger-spacing)
+
+(leaf stripes
+  :ensure t)
+(setq stripes-unit 1)
+
+(add-hook 'compilation-mode-hook #'stripes-mode)
+
+;; (leaf stripe-buffer
+;;   :ensure t)
+
+;; (add-hook 'minibuffer-setup-hook #'stripes-mode)
+;; (add-hook 'vertico-mode-hook #'stripes-mode)
+;; (leaf stripe-buffer
+;;   :ensure t)
+;; (setq stripe-hl-line highlight)
+;; (add-hook 'org-mode-hook 'turn-on-stripe-table-mode)
+
+;; These don't work yet.
+;; (set-face-attribute 'show-paren-match-expression nil :background "yellow")
+;; (setq show-paren-style 'parenthesis)
+
+(when (not (window-system))
+  (xterm-mouse-mode +1))
+
+(setq dired-dwim-target t)
+(setq show-trailing-whitespace 't)
+
+;; I would like this in the same column as git-gutter.
+;; (setq-default indicate-empty-lines t)
+
+(add-hook 'prog-mode-hook #'electric-pair-mode)
+
+(defun set-cursor-according-to-mode ()
+  (if (region-active-p)
+      (progn
+		(setq cursor-type 'hollow))
+    (progn
+      (setq cursor-type 'box))))
+;; (setq cursor-type 'box)
+
+(add-hook 'post-command-hook 'set-cursor-according-to-mode)
+
+(add-to-list 'load-path "~/.emacs.d/lisp")
+
+(define-key emacs-lisp-mode-map (kbd "<f10>") #'eval-buffer)
+
+;; (leaf autorevert
+;;   :doc "revert buffers when files on disk change"
+;;   :tag "builtin"
+;;   :custom ((auto-revert-interval . 0.1))
+;;   :global-minor-mode global-auto-revert-mode)
+(global-auto-revert-mode t)
+(setq auto-revert-use-notify nil)
+
+;; nest package configurations
+(leaf flycheck
+  :doc "On-the-fly syntax checking"
+  :emacs>= 24.3
+  :ensure t
+  :bind (("C-M-n" . flycheck-next-error)
+         ("C-M-p" . flycheck-previous-error))
+  :custom ((flycheck-emacs-lisp-initialize-packages . t))
+  :hook (emacs-lisp-mode-hook lisp-interaction-mode-hook)
+  :config
+  (leaf flycheck-package
+    :doc "A Flycheck checker for elisp package authors"
+    :ensure t
+    :config
+    (flycheck-package-setup)))
+
+(add-hook 'flycheck-error-list-mode-hook #'visual-line-mode)
+
+;; (leaf flycheck-posframe
+;;   :ensure t)
+;; (require 'flycheck-posframe)
+;; (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode)
+
+										;(leaf syntax-subword
+										;  :ensure t)
+										;(setq syntax-subword-skip-spaces t)
+
+(defun my-kill-thing-at-point (thing)
+  "Kill the `thing-at-point' for the specified kind of THING."
+  (let ((bounds (bounds-of-thing-at-point thing)))
+    (if bounds
+        (kill-region (car bounds) (cdr bounds))
+      (error "No %s at point" thing))))
+
+(defun my-kill-word-at-point ()
+  "Kill the word at point."
+  (interactive)
+  (my-kill-thing-at-point 'word))
+
+(global-set-key (kbd "M-<backspace>") #'my-kill-word-at-point)
+
+(leaf rainbow-delimiters
+  :ensure t)
+(add-hook 'prog-mode-hook #'rainbow-delimiters-mode)
+
+(leaf vertico
+  :ensure t)
+
+;; (leaf vertico-posframe
+;;   :ensure t)
+;; (vertico-posframe-mode 1)
+;; (setq vertico-posframe-parameters
+;;       '((left-fringe . 4)
+;;         (right-fringe . 4)))
+;; (setq vertico-count 30)
+
+
+(leaf marginalia
+  :ensure t)
+(leaf consult
+  :ensure t)
+(global-unset-key (kbd "M-g g"))
+(define-key prog-mode-map (kbd "C-x p g") #'consult-git-grep)
+
+(add-hook 'minibuffer-mode-hook #'stripes-mode)
+
+(vertico-mode)
+(marginalia-mode)
+
+(leaf orderless
+  :ensure t)
+
+(leaf hotfuzz
+  :ensure t)
+(setq completion-ignore-case t)
+;; (leaf flx
+;;   :ensure t)
+
+;; (setq completion-styles '(hotfuzz orderless)
+;;       completion-category-defaults nil
+;;       completion-category-overrides '((file (styles partial-completion))))
+(setq enable-recursive-minibuffers t)
+(setq minibuffer-prompt-properties
+      '(read-only t cursor-intangible t face minibuffer-prompt))
+(add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
+
+;; Search orderless as soon as a space is entered.
+(defun completion-style-change ()
+  (interactive)
+  (backward-char 1)
+  (if (looking-at " ")
+	  (setq-local completion-styles '(orderless hotfuzz)))
+  (forward-char 1))
+
+;; This hook runs in any buffer after the minibuffer has been opened once. :/
+(add-hook 'minibuffer-mode-hook (lambda ()
+								  (setq-local completion-styles '(hotfuzz orderless))
+								  (add-hook 'post-self-insert-hook #'completion-style-change) nil t))
+
+(setq vertico-cycle t)
+
+(leaf yasnippet
+  :ensure t)
+(require 'yasnippet)
+
+(setq yas-snippet-dirs
+	  '("~/.emacs.d/snippets"))
+(yas-global-mode t)
+
+(defun map-void (check replace-t replace-f)
+  (interactive)
+  (if (string= check "")
+	  replace-t
+	replace-f))
+
+(defun smart-tab (&optional arg)
+  "Smart tab behavior. Jump out quote or brackets, fold code blocks, or indent region."
+  (interactive "P")
+  (if (-contains? (list "\"" "'" ")" "}" ";" "|" ">" "]" ) (make-string 1 (char-after)))
+	  (progn
+		(forward-char 1))
+	(progn
+	  ;; If the cursor is on or immediately after a (, [, or { character.
+	  (if (string-match-p "[\{]" (concat (char-to-string (char-after)) (char-to-string (char-before))))
+		  (progn (origami-toggle-node (current-buffer) (point)))
+		;; If all else fails, just indent the line.
+		(c-indent-command)
+		;; (indent-for-tab-command arg)
+        ))))
+
+(defun my-yas-expand ()
+  (interactive)
+  (company-cancel)
+  (yas-expand))
+
+(define-key prog-mode-map (kbd "TAB") #'my-yas-expand)
+(define-key prog-mode-map (kbd "<tab>") #'my-yas-expand)
+(setq yas-fallback-behavior '(apply smart-tab 1))
+
+(leaf comment-dwim-2
+  :ensure t)
+(global-set-key (kbd "M-;") 'comment-dwim-2)
+;; (define-key org-mode-map (kbd "M-;") 'org-comment-dwim-2)
+
+(leaf deadgrep
+  :ensure t)
+
+(setq consult-project-root-function
+      (lambda ()
+        (when-let (project (project-current))
+          (car (project-roots project)))))
+(define-key project-prefix-map (kbd "e") #'vterm)
+(define-key project-prefix-map (kbd "M-e") #'eshell)
+
+;; (leaf counsel-at-point
+;;   :ensure t)
+
+(global-set-key [(control shift ?s)] #'consult-ripgrep)
+;; (global-set-key [(control shift ?s)] #'counsel-at-point-rg)
+(global-set-key (kbd "M-s M-s") #'isearch-forward)
+(global-set-key (kbd "C-s") #'consult-line)
+(global-set-key (kbd "C-M-r") #'isearch-forward)
+(global-set-key (kbd "C-x b") #'consult-buffer)
+(global-set-key (kbd "M-y") #'consult-yank-pop)
+(global-set-key (kbd "M-g M-g") #'consult-goto-line)
+(global-set-key (kbd "M-g i") #'consult-imenu)
+(global-set-key (kbd "M-g I") #'consult-imenu-multi)
+(global-set-key (kbd "C-x C-M-f") #'consult-recent-file)
+(global-set-key (kbd "C-x r b") #'consult-bookmark)
+(global-set-key (kbd "C-x M-k") #'kill-this-buffer)
+
+(global-set-key (kbd "C-x r C-d") #'bookmark-delete)
+
+(leaf consult-dir
+  :ensure t)
+(define-key global-map (kbd "C-x C-d") #'consult-dir)
+(define-key minibuffer-local-completion-map (kbd "C-x C-d") #'consult-dir)
+(define-key vertico-map (kbd "C-x C-j") #'consult-dir-jump-file)
+
+(leaf recentf
+  :ensure t)
+(recentf-mode)
+
+(leaf savehist
+  :ensure t
+  :init (savehist-mode))
+
+(leaf company
+  :ensure t)
+(add-hook 'prog-mode #'company-mode)
+(add-hook 'text-mode #'company-mode)
+(require 'company)
+(require 'company-tng)
+(require 'company-dabbrev)
+(require 'company-clang)
+(require 'company-cmake)
+(add-hook 'company-mode-hook #'company-tng-mode)
+
+;; company-box is too slow.
+;; (leaf company-box
+;;   :ensure t
+;;   :hook company-mode-hook)
+
+(leaf company-posframe
+  :ensure t)
+
+;; (define-key company-mode-map (kbd "TAB") #'my-yas-expand)
+;; (define-key company-mode-map (kbd "<tab>") #'my-yas-expand)
+;; (define-key company-tng-map (kbd "TAB") #'my-yas-expand)
+;; (define-key company-tng-map (kbd "<tab>") #'my-yas-expand)
+;; (define-key company-tng-map (kbd "<backtab>") nil)
+(define-key company-tng-map (kbd "M-n") nil)
+(define-key company-tng-map (kbd "M-p") nil)
+(define-key company-tng-map (kbd "C-n") nil)
+(define-key company-tng-map (kbd "C-p") nil)
+(define-key company-tng-map (kbd "<down>") nil)
+(define-key company-tng-map (kbd "<up>") nil)
+(setq company-minimum-prefix-length 1)
+;; (delete company-dabbrev company-safe-backends)
+;; (delete company-dabbrev-code company-safe-backends)
+(setq company-clang-insert-arguments t)
+(add-hook 'cmake-mode-hook #'company-mode)
+(add-hook 'emacs-lisp-mode-hook #'company-mode)
+
+;; Not that useful, and it is extremely slow.
+;; (leaf company-fuzzy
+;;   :ensure t)
+;; ;; (global-company-fuzzy-mode)
+;; (setq company-fuzzy-sorting-backend 'none)
+;; (setq company-fuzzy-prefix-on-top t)
+;; (setq company-fuzzy-show-annotation t)
+
+;; (leaf company-box
+;;   :ensure t)
+;; (add-hook 'company-mode-hook #'company-box-mode)
+
+(leaf which-key
+  :ensure t)
+(which-key-mode)
+(which-key-setup-minibuffer)
+
+;; (leaf which-key-posframe
+;;   :ensure t)
+;; (which-key-posframe-mode)
+;; (setq-default which-key-show-docstrings nil)
+;; (setq-default which-key-max-description-length 11)
+
+(leaf string-inflection
+  :ensure t)
+(global-set-key (kbd "C-c U") #'string-inflection-camelcase)
+(global-set-key (kbd "C-c M-u") #'string-inflection-upcase)
+(global-set-key (kbd "C-c u") #'string-inflection-lower-camelcase)
+(global-set-key (kbd "C-c _") #'string-inflection-underscore)
+(global-set-key (kbd "C-c C-_") #'string-inflection-capital-underscore)
+(global-set-key (kbd "C-c -") #'string-inflection-kebab-case)
+
+(leaf embrace
+  :ensure t)
+(define-key prog-mode-map (kbd "C-t") #'embrace-commander)
+(define-key text-mode-map (kbd "C-t") #'embrace-commander)
+
+(defun add-pair-symbol ()
+  (interactive)
+  (er/mark-symbol)
+  (embrace-add))
+
+(define-key prog-mode-map (kbd "M-b") #'add-pair-symbol)
+(add-hook 'org-mode-hook #'embrace-org-mode-hook)
+
+(leaf org-appear
+  :ensure t)
+(setq org-hide-emphasis-markers t)
+(setq org-appear-autolinks t)
+(setq org-appear-autosubmarkers t)
+(setq org-appear-autoentities t)
+(setq org-appear-autoemphasis t)
+(add-hook 'org-mode-hook #'org-appear-mode)
+
+(load-file "~/.emacs.d/org-visual-outline/org-dynamic-bullets.el")
+(load-file "~/.emacs.d/org-visual-outline/org-visual-indent.el")
+(require 'org-dynamic-bullets)
+(require 'org-visual-indent)
+(org-dynamic-bullets-mode)
+(org-visual-indent-mode)
+(add-hook 'org-mode-hook #'org-dynamic-bullets-mode)
+(add-hook 'org-mode-hook #'org-visual-indent-mode)
+
+;; (leaf odf-mode
+;;   :ensure t)
+;; (load-file "odf-mode.el")
+
+(leaf lsp-mode
+  :ensure t)
+(leaf lsp-ui
+  :ensure t)
+(setq-default lsp-clangd-version "14.0.0")
+;; (setq-default lsp-clients-clangd-args "-header-insertion=never")
+(setq lsp-keymap-prefix "M-RET")
+(setq lsp-ui-sideline-show-diagnostics t)
+;;(define-key lsp-ui-mode-map [remap xref-find-definitions] #'lsp-ui-peek-find-definitions)
+;;(define-key lsp-ui-mode-map [remap xref-find-references] #'lsp-ui-peek-find-references)
+(setq lsp-ui-peek-enable t)
+
+(setq lsp-ui-doc-enable t)
+(setq lsp-ui-doc-position 'bottom)
+(setq lsp-ui-doc-alignment 'frame)
+(setq lsp-ui-doc-use-childframe t)
+(setq lsp-ui-doc-use-webkit nil)
+(setq lsp-ui-doc-max-width 100)
+
+(setq tab-bar-show 1)
+;; (global-tab-line-mode)
+(add-hook 'lsp-ui-doc-mode-hook #'tab-bar-mode)
+(advice-add 'tab-bar-new-tab :filter-return #'tab-bar-mode)
+(setq lsp-ui-doc-max-height 60)
+(global-set-key (kbd "C-S-T") 'tab-bar-new-tab)
+(global-set-key (kbd "C-S-W") 'tab-bar-close-tab)
+(global-set-key (kbd "C-M-S-T") 'tab-line-new-tab)
+(global-set-key (kbd "C-M-<tab>") #'tab-line-switch-to-next-tab)
+;; (global-set-key (kbd "C-M-<tab>") #'tab-switcher-next-line)
+(global-set-key (kbd "C-M-<iso-lefttab>") #'tab-line-switch-to-prev-tab)
+(global-set-key (kbd "C-M-S-W") #'bury-buffer)
+(setq tab-line-close-button-show nil)
+(setq tab-bar-close-button-show nil)
+
+(add-hook 'messages-mode-hook #'tab-line-mode)
+(add-hook 'prog-mode-hook #'tab-line-mode)
+(add-hook 'eww-mode-hook #'tab-line-mode)
+
+(setq lsp-headerline-breadcrumb-enable nil)
+(setq lsp-enable-snippet t)
+(setq lsp-enable-semantic-highlighting t)
+;; TODO: Am I using a version of Clangd that's too old for this feature?
+;; (setq lsp-clients-clangd-args '("-header-insertion=never --header-insertion-decorators=0"))
+
+(lsp-ui-mode)	; This is a hack to make these define-keys work.
+(define-key lsp-ui-mode-map (kbd "M-l p o") #'lsp-ui-imenu)
+(define-key lsp-ui-mode-map (kbd "M-l p r") #'lsp-ui-peek-find-references)
+(define-key lsp-ui-mode-map (kbd "M-l p d") #'lsp-ui-peek-find-definitions)
+(define-key lsp-ui-mode-map (kbd "M-l p i") #'lsp-ui-peek-find-implementation)
+(define-key lsp-ui-mode-map (kbd "s-?") #'lsp-ui-doc-glance)
+(define-key lsp-ui-mode-map (kbd "s-C-?") #'lsp-describe-thing-at-point)
+(define-key lsp-mode-map (kbd "C-.") #'lsp-execute-code-action)
+
+(add-hook 'prog-mode-hook #'git-gutter-mode)
+
+(add-hook 'before-save-hook #'lsp-format-buffer)
+(add-hook 'before-save-hook #'lsp-organize-imports)
+(setq lsp-ui-peek-always-show t)
+(setq lsp-ui-sideline-show-code-actions t)
+
+(leaf modern-cpp-font-lock
+  :ensure t)
+(modern-c++-font-lock-global-mode t)
+
+(setq-default c-basic-offset 4)
+(setq-default tab-width 4)
+
+;; (leaf fill-column-indicator
+;;   :ensure t)
+;; (setq-default fci-rule-width 3)
+;; (setq-default fci-rule-color "whitesmoke")
+;; (setq-default fci-rule-use-dashes t)
+;; (setq-default fci-dash-pattern 0.65)
+;; (setq-default fci-always-use-textual-rule nil)
+;; (setq-default fci-rule-image-format 'xpm)
+;; ;; (setq-default fci-char-height 200)
+;; (setq-default fci-rule-column 80)
+
+(add-hook 'c++-mode-hook #'display-fill-column-indicator-mode)
+(add-hook 'c-mode-hook #'display-fill-column-indicator-mode)
+(add-hook 'c++-mode-hook #'fci-mode)
+(add-hook 'c-mode-hook #'fci-mode)
+
+(add-hook 'c++-mode-hook #'which-function-mode)
+(add-hook 'c-mode-hook #'which-function-mode)
+
+(add-hook 'prog-mode-hook #'hl-todo-mode)
+(add-hook 'c++-mode-hook #'lsp)
+(add-hook 'c++-mode-hook #'(lambda () (setq-default tab-width 4)))
+(add-to-list 'auto-mode-alist '("\\.tpp\\'" . c++-mode))
+(add-to-list 'auto-mode-alist '("\\.ipp\\'" . c++-mode))
+(add-to-list 'auto-mode-alist '("\\.mpp\\'" . c++-mode))
+
+(add-hook 'c-mode-hook #'lsp)
+(add-hook 'c-mode-hook #'(lambda () (setq-default tab-width 4)))
+;; Semantic tokens seems to fail if called too quickly.
+;; (add-hook 'c++-mode-hook #'lsp-semantic-tokens-mode)
+
+(define-derived-mode slang-mode prog-mode "slang"
+  "Major mode for editing Slang code."
+  ;; (setq font-lock-defaults 'c++-font-lock-keywords)
+  )
+(add-to-list 'auto-mode-alist '("\\.slang\\'" . slang-mode))
+(add-hook 'slang-mode-hook
+          (lambda ()
+            (setq comment-start "//")
+            (setq indent-for-tab-command 'c-indent-command)
+            (setq tab-always-indent 'nil)
+            (setq indent-tabs-mode nil)
+            ))
+(add-hook 'slang-mode-hook #'electric-operator-mode)
+(add-hook 'slang-mode-hook #'rainbow-delimiters-mode)
+
+(leaf fish-mode
+  :ensure t)
+(add-to-list 'auto-mode-alist '("\\.fish\\'" . fish-mode))
+
+(leaf smart-hungry-delete
+  :ensure t)
+(add-hook 'c++-mode-hook
+          (lambda ()
+			(local-set-key (kbd "<backspace>") #'smart-hungry-delete-backward-char)
+			(local-set-key (kbd "<delete>") #'smart-hungry-delete-forward-char)))
+
+(defun jump-to-matching-paren (arg)
+  "Move to mmatching parenthesis."
+  (interactive "p")
+  (cond
+   ((looking-at "\\s\(")
+	(forward-list 1))
+   ((save-excursion (backward-char 1) (looking-at "\\s\)"))
+	(backward-list 1))
+   ;; ((looking-at "\\s\{.?")
+   ;; (forward-list 1))
+   ((save-excursion (backward-char 1) (looking-at "\\s\}"))
+	(backward-list 1))
+   (t
+	(message "not on a paren"))))
+
+(define-key prog-mode-map (kbd "M-j") 'jump-to-matching-paren)
+
+
+(add-hook 'slang-mode-hook
+          (lambda ()
+			(local-set-key (kbd "<backspace>") #'smart-hungry-delete-backward-char)
+			(local-set-key (kbd "<delete>") #'smart-hungry-delete-forward-char)))
+
+(setq compile-command "ninja -C build/")
+(add-hook 'compilation-mode-hook #'visual-line-mode)
+
+(require 'cc-mode)
+(define-key c-mode-base-map (kbd "C-c o") #'ff-find-other-file)
+
+;; I haven't figured out how to make this smarter solution work yet.
+;; (setq cc-search-directories (make-list 1 '(project-root)))
+
+(setq cc-search-directories '("."
+							  ".." "../*" "../../*"
+							  "/usr/include" "/usr/local/include/*"))
+(add-hook 'c++-mode-hook (lambda ()
+						   (setq ff-other-file-alist '(("\\.cpp$" (".hpp" ".h" ".tpp" ".ipp"))
+													   ("\\.hpp$" (".cpp"))
+													   ("\\.h$" (".cpp"))
+													   ("\\.tpp$" (".cpp"))
+													   ("\\.ipp$" (".cpp"))))))
+
+(defun auto-insert-brace-newline ()
+  (interactive)
+  (if (eq major-mode #'c++-mode)
+	  ;; If this is a C++ struct definition.
+	  (if (eq (char-before) ?\{)
+		  (progn
+			;; TODO: We could expand a snippet for typedef struct {} name; style
+			;;       if there is no name inserted between struct and {.
+			(if (re-search-backward
+				 "^\\(\s \\)*\\(struct [a-zA-Z0-9]+\\|[a-zA-Z0-9]+ [a-zA-Z0-9]+([chars]*)\\)\\(\s \\)?"
+				 (line-beginning-position))
+				(progn
+				  (end-of-line)
+				  (insert ";")
+				 (backward-char 3)
+				 (if (not (eq (char-before) ?\s ))
+					 (insert " "))
+				 (end-of-line)
+				 (backward-char 2)
+				 (newline-and-indent)))))))
+
+(add-hook 'c++-mode-hook (lambda ()
+						   (add-hook 'post-self-insert-hook #'auto-insert-brace-newline)))
+
+(defun smart-cpp-insert ()
+  (interactive)
+  (if (eq major-mode #'c++-mode)
+	  (progn
+		;; Do not expand things inside a comment.
+		(if (not(looking-back "//.*" (line-beginning-position)))
+			(progn
+			  (setq-local temp-pos (point))
+			  ;; Place a () automatically after an =if= statement.
+			  (if (looking-back "if .*" (line-beginning-position))
+				  (progn
+					;; TODO: fix if =consteval=
+					(if (looking-back "if (\\(constexpr\\|consteval\\)" (line-beginning-position))
+						(progn
+						  (setq-local keyword (word-at-point))
+						  (re-search-backward "if (" (line-beginning-position))
+						  (kill-line)
+						  (insert "if ")
+						  (insert keyword)
+						  (insert " ()")
+						  (backward-char 1))
+					  (progn
+						;; TODO: Prevent expansion in block comments.
+						(backward-char 2)
+						(if (looking-at "f")
+							(progn
+							  (forward-char 2)
+							  (insert "()")
+							  (backward-char 1))
+						  (goto-char temp-pos))))))
+			  t)))))
+
+(add-hook 'c++-mode-hook (lambda ()
+						   (add-hook 'post-self-insert-hook #'smart-cpp-insert)))
+
+;; (defgroup template-faces)
+(require 'rainbow-delimiters)
+
+(defface template-face-1
+  '((t :foreground "black"))
+  "My face")
+
+(defface template-face-2
+  '((t :foreground "black"))
+  "My face")
+(set-face-attribute 'template-face-2 nil
+					:foreground (face-foreground 'rainbow-delimiters-depth-3-face)
+					:background (face-background 'rainbow-delimiters-depth-3-face))
+
+(set-face-attribute 'template-face-1 nil
+					:foreground (face-foreground 'rainbow-delimiters-depth-2-face)
+					:background (face-background 'rainbow-delimiters-depth-2-face))
+
+(defun highlight-template ()
+  (interactive)
+  (highlight-regexp "<[^<>]*<[^<>]*" 'template-face-2)
+  (highlight-regexp "<[^<>]*" 'template-face-1)
+  )
+
+;; I can't get this to look right yet.
+;; (add-hook 'c++-mode-hook #'highlight-template)
+
+(leaf magit
+  :ensure t)
+(leaf git-gutter
+  :ensure t)
+(global-git-gutter-mode)
+(setq git-gutter:visual-line t)
+; TODO: Only do this when git-gutter is active.
+(global-set-key (kbd "C-S-M-<up>") #'git-gutter:previous-hunk)
+(global-set-key (kbd "C-S-M-<down>") #'git-gutter:next-hunk)
+(leaf git-timemachine
+  :ensure t)
+(setq magit-display-buffer-function
+	  (lambda (buffer)
+        (display-buffer
+         buffer (if (and (derived-mode-p 'magit-mode)
+                         (memq (with-current-buffer buffer major-mode)
+							   '(magit-process-mode
+                                 magit-revision-mode
+                                 magit-diff-mode
+                                 magit-stash-mode
+                                 magit-status-mode)))
+                    nil
+				  '(display-buffer-same-window)))))
+
+(add-hook 'magit-mode-hook #'tab-line-mode)
+
+(setq magit-commit-show-diff nil)
+
+(global-set-key (kbd "C-x v x") #'git-gutter:revert-hunk)
+(global-set-key (kbd "C-x v X") #'vc-delete-file)
+(global-set-key (kbd "C-x v C-=") #'magit-blame)
+(global-set-key (kbd "C-x v M-g") #'magit-file-dispatch)
+(global-set-key (kbd "C-x v s") #'counsel-at-point-git-grep)
+
+(leaf with-editor
+  :ensure t)
+(define-key (current-global-map)
+  [remap async-shell-command] 'with-editor-async-shell-command)
+(define-key (current-global-map)
+  [remap shell-command] 'with-editor-shell-command)
+(add-hook 'shell-mode-hook 'with-editor-export-editor)
+(add-hook 'eshell-mode-hook 'with-editor-export-editor)
+(add-hook 'term-exec-hook  'with-editor-export-editor)
+(add-hook 'vterm-mode-hook 'with-editor-export-editor)
+;; (add-hook 'vterm-mode-hook 'blink-cursor-mode)
+
+(leaf origami
+  :ensure t)
+(add-hook 'prog-mode-hook #'origami-mode)
+
+(leaf lsp-origami
+  :ensure t)
+(add-hook 'lsp-after-open-hook #'lsp-origami-try-enable)
+
+(leaf cmake-font-lock
+  :ensure t)
+(add-hook 'cmake-mode-hook #'lsp)
+(require 'cmake-mode)
+(define-key cmake-mode-map (kbd "<f10>") #'recompile)
+
+(load-theme 'modus-operandi)
+(setq modus-themes-hl-line '(accented intense underline))
+(setq x-underline-at-descent-line t)
+(setq modus-themes-subtle-line-numbers nil)
+(setq modus-themes-intense-markup t)
+(setq modus-themes-paren-match '(bold intense))
+(setq modus-themes-region '(bg-only no-extend accented))
+(setq modus-themes-italic-constructs t)
+(setq modus-themes-mode-line '(moody))
+(setq modus-themes-completions 'opinionated)
+;; Activate theme configuration
+(modus-themes-load-operandi)
+
+;; (add-to-list 'load-path (expand-file-name "~/.emacs.d/nano-emacs"))
+
+;; (load-file "~/.emacs.d/nano-emacs/nano-base-colors.el")
+;; (load-file "~/.emacs.d/nano-emacs/nano-faces.el")
+;; (load-file "~/.emacs.d/nano-emacs/nano-theme-light.el")
+;; (load-file "~/.emacs.d/nano-emacs/nano-modeline.el")
+;; ;; (load-file (expand-file-name "~/.emacs.d/nano-emacs/nano-layout.el"))
+;; (load-file "~/.emacs.d/nano-emacs/nano-layout.el")
+;; (load-file "~/.emacs.d/nano-emacs/nano-defaults.el")
+;; (load-file "~/.emacs.d/nano-emacs/nano-colors.el")
+
+;; (require 'nano)
+;; (require 'nano-base-colors)
+;; (require 'nano-faces)
+;; (require 'nano-theme)
+;; (require 'nano-modeline)
+;; (require 'nano-layout)
+;; (require 'nano-defaults)
+;; (require 'nano-colors)
+
+;; (nano-faces)
+;; (nano-theme)
+;; (nano-modeline)
+
+;; (setq nano-font-family-monospaced "Roboto Mono")
+;; (setq nano-font-family-proportional nil)
+;; (setq nano-font-size 14)
+
+(global-set-key (kbd "C-h M-f") #'describe-face)
+;; TODO: This doesn't work.
+(global-set-key (kbd "C-h S-f") #'describe-face)
+
+(defun smart-open-line ()
+  "Insert an empty line after the current line.
+Position the cursor at its beginning, according to the current mode."
+  (interactive)
+  (move-end-of-line nil)
+  (newline-and-indent))
+
+(defun smart-open-line-above ()
+  "Insert an empty line above the current line.
+Position the cursor at it's beginning, according to the current mode."
+  (interactive)
+  (forward-line -1)
+  (move-end-of-line nil)
+  (newline-and-indent)
+  (indent-according-to-mode))
+
+(leaf mlscroll
+  :ensure t)
+(require 'mlscroll)
+;; (mlscroll-mode 1)
+
+(leaf good-scroll
+  :ensure t)
+(good-scroll-mode)
+
+(require 'good-scroll)
+
+(defun good-scroll-up-half-screen ()
+  "Scroll up by a half screen."
+  (interactive)
+  (good-scroll-move (/ (good-scroll--window-usable-height) 2)))
+(global-set-key (kbd "M-<next>") #'good-scroll-up-half-screen)
+(global-set-key (kbd "M-C-<next>") #'scroll-other-window)
+
+(defun good-scroll-down-half-screen ()
+  "Scroll down by a half screen."
+  (interactive)
+  (good-scroll-move (- (/ (good-scroll--window-usable-height) 2))))
+(global-set-key (kbd "M-<prior>") #'good-scroll-down-half-screen)
+(global-set-key (kbd "M-C-<prior>") #'scroll-other-window-down)
+
+(defun good-scroll-end ()
+  "Scroll to the end of buffer."
+  (interactive)
+  ;; (setq lines-to-end (* (- (count-lines (point-min) (point-max)) (line-number-at-pos)) (line-pixel-height)))
+  (good-scroll-move (* (- (count-lines (point-min) (point-max)) (line-number-at-pos)) (line-pixel-height)))
+  (while (< good-scroll-traveled (-
+								  (* (- (count-lines (point-min) (point-max)) (line-number-at-pos)) (line-pixel-height))
+								  (+ (good-scroll--window-usable-height) 100)))
+    (end-of-buffer)))
+;; This isn't working yet:
+;; (global-set-key (kbd "C-<end>") #'good-scroll-end)
+
+(defun good-scroll-up-line ()
+  "Scroll up by a line."
+  (interactive)
+  (good-scroll-move (- (* (line-pixel-height) 2))))
+(global-set-key (kbd "M-<up>") #'good-scroll-up-line)
+
+(defun good-scroll-down-line ()
+  "Scroll down by a line."
+  (interactive)
+  (good-scroll-move (* (line-pixel-height) 2)))
+(global-set-key (kbd "M-<down>") #'good-scroll-down-line)
+
+;; TODO: Improve `pixel-scroll-interpolation-down` settings.
+;; (global-set-key (kbd "<prior>") #'good-scroll-down-full-screen)
+;; (global-set-key (kbd "<next>") #'good-scroll-up-full-screen)
+
+(leaf drag-stuff
+  :ensure t)
+(drag-stuff-global-mode 1)
+;; (drag-stuff-define-keys)
+(global-set-key (kbd "M-C-<up>") #'drag-stuff-up)
+(global-set-key (kbd "M-C-<down>") #'drag-stuff-down)
+
+(global-set-key (kbd "M-C-<up>") #'drag-stuff-up)
+(global-set-key (kbd "M-C-<down>") #'drag-stuff-down)
+
+(leaf writeroom-mode
+  :ensure t)
+(global-set-key (kbd "C-x t w") #'writeroom-mode)
+(add-hook 'writeroom-mode-enable-hook #'git-gutter:clear)
+(add-hook 'writeroom-mode-disable-hook #'git-gutter--turn-on)
+
+(global-set-key (kbd "C-M-s-+") #'writeroom-decrease-width)
+(global-set-key (kbd "C-M-s-=") #'writeroom-increase-width)
+
+(define-key prog-mode-map (kbd "C-<return>") #'smart-open-line)
+(define-key prog-mode-map (kbd "C-S-<return>") #'smart-open-line-above)
+(define-key text-mode-map (kbd "C-<return>") #'smart-open-line)
+(define-key text-mode-map (kbd "C-S-<return>") #'smart-open-line-above)
+
+(global-set-key (kbd "C-<return>") #'smart-open-line)
+(global-set-key (kbd "C-S-<return>") #'smart-open-line-above)
+
+(global-set-key (kbd "C-=") #'er/expand-region)
+(global-set-key (kbd "C-+") #'er/contract-region)
+
+(leaf change-inner
+  :ensure t)
+(global-set-key (kbd "M-i") #'change-inner)
+(define-key input-decode-map "\C-i" [C-i])
+(global-set-key (kbd "<C-i>") #'change-outer)
+
+;; No matter what you do, this crappy package isn't hackable. :/
+(add-hook 'global-mode-hook (lambda () (setq er/try-expand-list '(er/mark-method-call
+																  er/mark-comment
+																  er/mark-comment-block
+																  er/mark-inside-quotes
+																  er/mark-outside-quotes
+																  er/mark-inside-pairs
+																  er/mark-outside-pairs))))
+
+(leaf aggressive-indent
+  :ensure t)
+
+;; I can't get this to work well in C++ yet.
+
+;; (add-to-list
+;;  'aggressive-indent-dont-indent-if
+;;  '(and (derived-mode-p 'c++-mode)
+;;        (null (string-match "\\([;{}]\\|\\b\\(if\\|for\\|while\\)\\b\\)"
+                                   ;;                            (thing-at-point 'line)))))
+
+                                   ;; (add-to-list
+                                   ;;  'aggressive-indent-dont-indent-if
+                                   ;;  '(and (derived-mode-p 'c++-mode)
+                                   ;;        (string-match "[/]"
+                                   ;; 		     (thing-at-point 'line))))
+
+                                   (add-hook 'emacs-lisp-mode-hook #'aggressive-indent-mode)
+;; (add-hook 'c++-mode-hook #'aggressive-indent-mode)
+
+(leaf electric-operator
+  :ensure t)
+(add-hook 'c++-mode-hook #'electric-operator-mode)
+(setq-default electric-operator-c-pointer-type-style 'type)
+
+(setq c-label-minimum-indentation 0)
+
+(leaf good-scroll
+  :ensure t)
+(global-set-key [next] #'good-scroll-up-full-screen)
+(global-set-key [prior] #'good-scroll-down-full-screen)
+;; TODO: Write commands for top and bottom of document
+
+(leaf ace-window
+  :ensure t)
+(global-set-key (kbd "C-x o") #'ace-window)
+(global-set-key (kbd "s-<up>") #'windmove-up)
+(global-set-key (kbd "s-<left>") #'windmove-left)
+(global-set-key (kbd "s-<down>") #'windmove-down)
+(global-set-key (kbd "s-<right>") #'windmove-right)
+
+(global-set-key (kbd "s-S-<up>") #'windmove-swap-states-up)
+(global-set-key (kbd "s-S-<left>") #'windmove-swap-states-left)
+(global-set-key (kbd "s-S-<down>") #'windmove-swap-states-down)
+(global-set-key (kbd "s-S-<right>") #'windmove-swap-states-right)
+
+(global-set-key (kbd "s-C-<up>") #'enlarge-window)
+(global-set-key (kbd "s-C-<left>") #'shrink-window-horizontally)
+(global-set-key (kbd "s-C-<down>") #'shrink-window)
+(global-set-key (kbd "s-C-<right>") #'enlarge-window-horizontally)
+
+(global-set-key (kbd "s-M-<up>") #'split-window-below)
+(global-set-key (kbd "s-M-<down>") #'(lambda () (interactive)
+									   (split-window-below)
+									   (windmove-down)))
+(global-set-key (kbd "s-M-<left>") #'split-window-right)
+(global-set-key (kbd "s-M-<right>") #'(lambda () (interactive)
+										(split-window-right)
+										(windmove-right)))
+
+(global-set-key (kbd "s-<end>") #'delete-window)
+(global-set-key (kbd "s-<next>") #'maximize-window)
+(global-set-key (kbd "s-<prior>") #'minimize-window)
+
+(leaf rotate
+  :ensure t)
+(global-set-key (kbd "M-s-<prior>") #'rotate-window)
+(global-set-key (kbd "M-s-<next>") #'rotate-layout)
+
+(leaf use-package
+  :ensure t)
+
+;; (leaf vterm
+;;   :ensure t)
+
+;; (leaf julia-snail
+;;   :ensure t
+;;   :require vterm
+;;   :hook (julia-mode . julia-snail-mode))
+
+(use-package vterm
+  :ensure t)
+
+(use-package julia-snail
+  :ensure t
+  :requires vterm
+  :hook (julia-mode . julia-snail-mode))
+
+(leaf lsp-julia
+  :ensure t
+  :hook (julia-mode . lsp))
+
+(add-to-list 'auto-mode-alist '("\\.jl\\'" . julia-mode))
+
+(leaf v-mode
+  :ensure t)
+(require 'v-mode)
+(add-to-list 'auto-mode-alist '("\\.v?v\\.vsh\\'" . v-mode))
+(add-hook 'v-mode-hook #'display-line-numbers-mode)
+(setq auto-mode-alist (delete '("\\.[ds]?va?h?\\'" . verilog-mode) auto-mode-alist))
+(add-hook 'before-save-hook #'(lambda () (add-hook 'v-mode-hook #'v-format-buffer)
+                                (setq-local indent-tabs-mode t)
+                                (setq-local tab-width 4)))
+
+(customize-set-variable 'split-height-threshold 15)
+
+(leaf avy
+  :ensure t)
+
+;; TODO: Wrap these in a stripes-mode setter.
+(global-set-key (kbd "M-k") #'avy-goto-line-above)
+(global-set-key (kbd "M-a") #'avy-goto-line-below)
+(define-key c++-mode-map (kbd "M-a") #'avy-goto-line-below)
+(global-set-key (kbd "M-h") #'avy-goto-word-1-above)
+(global-set-key (kbd "M-o") #'avy-goto-word-1-below)
+(global-set-key (kbd "M-d") #'avy-kill-whole-line)
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "M-h") #'avy-goto-word-1-above)
+  (define-key org-mode-map (kbd "M-o") #'avy-goto-word-1-below)
+  (define-key org-mode-map (kbd "M-<up>") #'good-scroll-up-line)
+  (define-key org-mode-map (kbd "M-<down>") #'good-scroll-down-line))
+
+(setq avy-keys
+      '(
+        ;; ?n ?a
+        ?t ?h ?s ?o ?r ?i
+        ?m ?k ?b ?u ?g ?j ?f ?y))
+
+(define-key c++-mode-map (kbd "<f10>") #'recompile)
+(add-hook 'compilation-mode-hook #'(lambda () (setq mode-line-format nil)))
+(define-key c++-mode-map (kbd "<f5>") #'gdb)
+
+(defun find-user-init-file-other ()
+  "Edit the `user-init-file', in another window."
+  (interactive)
+  (find-file-other-window user-init-file))
+
+(defun find-user-init-file ()
+  "Edit the `user-init-file', in another window."
+  (interactive)
+  (find-file user-init-file))
+(global-set-key (kbd "C-x C-S-I") #'find-user-init-file)
+(global-set-key (kbd "C-x <C-i>") #'find-user-init-file-other)
+
+(leaf pdf-tools
+  :ensure t)
+
+(leaf nov
+  :ensure t)
+
+(add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
+
+
+;; Debugging.
+(setq gdb-many-windows t
+      gdb-use-separate-io-buffer t
+      gdb-use-colon-colon-notation t
+      gdb-show-changed-values t)
+(advice-add 'gdb-setup-windows :after
+            (lambda ()
+			  (gdb-display-disassembly-buffer)
+			  (set-window-dedicated-p (selected-window) t)))
+(defconst gud-window-register 123456)
+
+;; Enable automatic highlighting of the active line in disassembly window.
+;; (defun nispio/disable-window-fringes () (set-window-fringes nil 0 0))
+;; (add-hook 'gdb-disassembly-mode-hook #'nispio/disable-window-fringes)
+
+(add-hook 'gdb-locals-mode-hook #'stripes-mode)
+(add-hook 'gdb-frames-mode-hook #'stripes-mode)
+(add-hook 'gdb-breakpoints-mode-hook #'stripes-mode)
+(add-hook 'gdb-threads-mode-hook #'stripes-mode)
+(add-hook 'gdb-registers-mode-hook #'stripes-mode)
+(add-hook 'gdb-disassembly-mode-hook #'stripes-mode)
+(add-hook 'gdb-disassembly-mode-hook #'hl-line-mode)
+
+;; (add-hook 'gdb-parent-mode-hook #'(lambda () (setq mode-line-format nil)))
+(add-hook 'gdb-locals-mode-hook #'(lambda () (setq mode-line-format nil)))
+(add-hook 'gdb-frames-mode-hook #'(lambda () (setq mode-line-format nil)))
+(add-hook 'gdb-breakpoints-mode-hook #'(lambda () (setq mode-line-format nil)))
+(add-hook 'gdb-threads-mode-hook #'(lambda () (setq mode-line-format nil)))
+(add-hook 'gdb-registers-mode-hook #'(lambda () (setq mode-line-format nil)))
+(add-hook 'gdb-disassembly-mode-hook #'(lambda () (setq mode-line-format nil)))
+(add-hook 'gdb-inferior-io-mode-hook #'(lambda () (setq mode-line-format nil)))
+(add-hook 'gud-mode-hook #'(lambda () (setq mode-line-format nil)))
+
+(add-hook 'gdb-locals-mode-hook #'scroll-bar-mode)
+(add-hook 'gdb-frames-mode-hook #'scroll-bar-mode)
+(add-hook 'gdb-breakpoints-mode-hook #'scroll-bar-mode)
+(add-hook 'gdb-threads-mode-hook #'scroll-bar-mode)
+(add-hook 'gdb-registers-mode-hook #'scroll-bar-mode)
+(add-hook 'gdb-disassembly-mode-hook #'scroll-bar-mode)
+
+(defun gud-quit ()
+  (interactive)
+  (gud-basic-call "quit"))
+
+(define-key prog-mode-map (kbd "C-x p M-c") #'gdb)
+
+(add-hook 'gud-mode-hook
+          (lambda ()
+            (gud-tooltip-mode)
+            (window-configuration-to-register gud-window-register)
+            (local-set-key (kbd "C-q") 'gud-quit)))
+
+(advice-add 'gud-sentinel :after
+            (lambda (proc msg)
+              (when (memq (process-status proc) '(signal exit))
+                (jump-to-register gud-window-register)
+                (bury-buffer))))
+
+(with-eval-after-load "gud"
+  (define-key gud-minor-mode-map (kbd "C-n C-n") (rebinder-dynamic-binding "C-n C-a")))
+
+(defface xwl-gdb-current-line-face
+  '((((class color))
+     (:background "RosyBrown1")))
+  "")
+
+(setq xwl-gdb-current-line-overlay nil)
+
+;; (defun xwl-gdb-highlight-current-line ()
+;;   (when gud-overlay-arrow-position
+;;     (with-current-buffer (marker-buffer gud-overlay-arrow-position)
+;;       (when xwl-gdb-current-line-overlay
+;;         (delete-overlay xwl-gdb-current-line-overlay))
+;;       (setq xwl-gdb-current-line-overlay (make-overlay gud-overlay-arrow-position (+ 1 (line-end-position))))
+;;       (overlay-put xwl-gdb-current-line-overlay 'face 'xwl-gdb-current-line-face))))
+
+(defun xwl-gdb-unhighlight-current-line ()
+  (delete-overlay xwl-gdb-current-line-overlay))
+
+(defface xwl-gdb-breakpoint-line-face
+  '((((class color))
+     (:background "LavenderBlush2")))
+  "")
+
+;; (defun xwl-gdb-highlight-breakpoint-line (enabled bptno &optional line)
+;;   (let* ((bp-line (or line (line-number-at-pos)))
+;;          (points (gdb-line-posns bp-line))
+;;          (bp-overlay (make-overlay (car points) (cdr points))))
+;;     (overlay-put bp-overlay 'face 'xwl-gdb-breakpoint-line-face)))
+
+(defun xwl-gdb-unhighlight-breakpoint-lines (start end &optional remove-margin)
+  (dolist (overlay (overlays-in start end))
+    (when (eq (overlay-get overlay 'face) 'xwl-gdb-breakpoint-line-face)
+      (delete-overlay overlay))))
+
+;; (with-eval-after-load 'gdb-mi
+;; (advice-add 'gdb-frame-handler :after 'xwl-gdb-highlight-current-line)
+;; (advice-add 'gdb-reset :after 'xwl-gdb-unhighlight-current-line)
+;; (advice-add 'gdb-put-breakpoint-icon :after 'xwl-gdb-highlight-breakpoint-line)
+;; (advice-add 'gdb-step-thread :after 'xwl-gdb-highlight-current-line)
+;; (advice-add 'gdb-continue-thread :after 'xwl-gdb-highlight-current-line)
+;; (advice-add 'gdb-remove-breakpoint-icons :after 'xwl-gdb-unhighlight-breakpoint-lines))
+
+(leaf rmsbolt
+  :ensure t)
+;; TODO: Install iasm-mode as an alternative.
+
+(leaf iasm-mode
+  :ensure t)
+
+(leaf x86-lookup
+  :ensure t)
+(global-set-key (kbd "C-h x") #'x86-lookup)
+(setq-default x86-lookup-pdf "~/.emacs.d/325462-sdm-vol-1-2abcd-3abcd.pdf")
+
+;; (leaf disaster
+;;   :ensure t)
+
+;; TODO: There are general issues in this.
+;; (load "~/.emacs.d/web.el")
+
+(global-set-key (kbd "C-x }") #'kmacro-call-macro)
+
+(leaf iedit
+  :ensure t)
+(global-set-key (kbd "C-;") #'iedit-mode)
+;; (global-set-key (kbd "C-M-{") #'iedit-restrict-current-line)
+;; (global-set-key (kbd "C-M-}") #'iedit-restrict-function)
+(global-set-key (kbd "C-x r r") #'iedit-rectangle-mode)
+(global-set-key (kbd "C-M-;") #'iedit-restrict-current-line)
+
+(leaf presentation
+  :ensure t)
+
+(setq org-support-shift-select t)
+;; (add-hook 'org-mode-hook #'visual-line-mode)
+(global-visual-line-mode t)
+(add-hook 'epresent-mode-hook #'display-line-numbers-mode)
+
+
+(leaf epresent
+  :ensure t)
+
+(leaf helpful
+  :ensure t)
+(global-set-key (kbd "C-h f") #'helpful-callable)
+(global-set-key (kbd "C-h v") #'helpful-variable)
+(global-set-key (kbd "C-h k") #'helpful-key)
+(global-set-key (kbd "C-h C") #'helpful-command)
+(global-set-key (kbd "C-h F") #'helpful-function)
+(global-set-key (kbd "C-c C-d") #'helpful-at-point)
+
+(set-face-underline 'mode-line nil)
+(set-face-underline 'mode-line-active nil)
+(set-face-underline 'mode-line-inactive nil)
+
+(set-face-attribute 'mode-line-active nil
+                    :font "Input Serif Compressed"
+					:weight 'bold
+                    :height 100)
+(set-face-attribute 'mode-line-inactive nil
+                    :font "Input Serif Compressed"
+					:weight 'bold
+                    :height 100)
+(set-face-attribute 'doom-modeline-spc-face nil
+                    :font "Input Serif Compressed"
+					:weight 'bold
+                    :height 100)
+
+(setq doom-modeline-height 30)
+
+(set-face-background 'doom-modeline-urgent "#8a0000")
+(set-face-foreground 'doom-modeline-urgent "#d7d7d7")
+
+(set-face-background 'doom-modeline-info "#004c2e")
+(set-face-foreground 'doom-modeline-info "#d7d7d7")
+
+(leaf hl-prog-extra
+  :ensure t)
+(setq hl-prog-extra-list
+      (list
+       ;; Match `some.text` as a constant.
+	   '("`[^\n]+`" 0 comment lsp-face-semhl-namespace)
+	   ;; Match template lists.
+	   ;; '("\\^\\(include\\).*<\\(\\(typename\\)?.*[a-z0-9]*\\)>" 0 nil '(:background "#faf5ff" :weight extra-light))
+       ;; Match http://xyz (URL).
+       '("\\<https?://[^[:blank:]]*" 0 comment lsp-ui-doc-url)))
+(add-hook 'prog-mode-hook #'hl-prog-extra-mode)
+(add-hook 'c++-mode-hook #'hl-prog-extra-mode)
+(add-hook 'c-mode-hook #'hl-prog-extra-mode)
+
+(leaf zig-mode
+  :ensure t)
+
+(global-set-key (kbd "C-x RET RET") #'org-open-at-point-global)
+
+;; (global-set-key (kbd "<escape>") (rebinder-dynamic-binding "C-g"))
+;; (define-key global-map (kbd "<escape>") (rebinder-dynamic-binding "C-g"))
+(global-set-key (kbd "<escape>") #'keyboard-quit)
+
+;; (setq mlscroll-out-color "efefef")
+(setq find-file-visit-truename t)
+(put 'magit-edit-line-commit 'disabled nil)
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages
+   '(x86-lookup iasm-mode iasm disaster vterm ace-window origami lsp-mode which-key company consult vertico flycheck posframe zig-mode nov fill-column-indicator hl-prog-extra odf-mode odt-mode fish-mode yasnippet yascroll writeroom-mode which-key-posframe vertico-posframe v-mode use-package test-simple tab-jump-out stripes stripe-buffer string-inflection smart-hungry-delete rotate rmsbolt rainbow-delimiters rainbow-blocks presentation pdf-tools org-appear orderless modern-cpp-font-lock mlscroll mini-modeline marginalia magit lsp-ui lsp-treemacs lsp-origami lsp-julia loc-changes load-relative leaf julia-snail iedit hotfuzz hl-todo helpful good-scroll git-timemachine git-gutter flycheck-posframe flycheck-package flx-ido feebleline epresent embrace electric-operator drag-stuff doom-modeline deadgrep counsel-at-point corfu consult-dir company-posframe company-fuzzy company-box comment-dwim-2 cmake-font-lock change-inner centaur-tabs bui aggressive-indent)))

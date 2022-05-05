@@ -5,7 +5,7 @@
 					   ("gnu" . "https://elpa.gnu.org/packages/")))
   (package-initialize)
   (unless (package-installed-p 'leaf)
-    (package-refresh-contents)
+    (package-refresh-contents)   
     (package-install 'leaf)))
 
 (setq max-lisp-eval-depth 10000) ; default is 500
@@ -550,8 +550,10 @@
 (define-key lsp-ui-mode-map (kbd "M-l p d") #'lsp-ui-peek-find-definitions)
 (define-key lsp-ui-mode-map (kbd "M-l p i") #'lsp-ui-peek-find-implementation)
 (define-key lsp-ui-mode-map (kbd "s-?") #'lsp-ui-doc-glance)
+(define-key lsp-ui-mode-map (kbd "C-s-r") #'lsp-rename)
 (define-key lsp-ui-mode-map (kbd "s-C-?") #'lsp-describe-thing-at-point)
 (define-key lsp-mode-map (kbd "C-.") #'lsp-execute-code-action)
+
 
 (add-hook 'prog-mode-hook #'git-gutter-mode)
 
@@ -580,8 +582,8 @@
 
 (add-hook 'c++-mode-hook #'display-fill-column-indicator-mode)
 (add-hook 'c-mode-hook #'display-fill-column-indicator-mode)
-(add-hook 'c++-mode-hook #'fci-mode)
-(add-hook 'c-mode-hook #'fci-mode)
+;; (add-hook 'c++-mode-hook #'fci-mode)
+;; (add-hook 'c-mode-hook #'fci-mode)
 
 (add-hook 'c++-mode-hook #'which-function-mode)
 (add-hook 'c-mode-hook #'which-function-mode)
@@ -1124,7 +1126,6 @@ Position the cursor at it's beginning, according to the current mode."
 
 (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
 
-
 ;; Debugging.
 (setq gdb-many-windows t
       gdb-use-separate-io-buffer t
@@ -1170,6 +1171,24 @@ Position the cursor at it's beginning, according to the current mode."
   (gud-basic-call "quit"))
 
 (define-key prog-mode-map (kbd "C-x p M-c") #'gdb)
+
+(global-set-key (kbd "<f1>") #'gud-step)
+(global-set-key (kbd "C-<f1>") #'gud-stepi)
+
+(global-unset-key (kbd "<f2>"))
+(global-set-key (kbd "<f2>") #'gud-next)
+
+(global-set-key (kbd "<f4>") #'gud-break)
+(global-set-key (kbd "C-<f4>") #'gud-tbreak)
+
+(global-set-key (kbd "<f12>") #'gud-remove)
+
+(global-set-key (kbd "<f3>") #'gud-cont)
+(global-set-key (kbd "C-<f3>") #'gud-run)
+(global-set-key (kbd "M-<f3>") #'gud-until)
+
+(global-set-key (kbd "<f7>") #'gud-up)
+(global-set-key (kbd "<f8>") #'gud-down)
 
 (add-hook 'gud-mode-hook
           (lambda ()

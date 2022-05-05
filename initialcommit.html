@@ -1,22 +1,19 @@
 <!DOCTYPE html>
 <html>
+  <head>
+	<link rel="stylesheet" type="text/css" href="simple.css">
+  </head>
+	
   <center>
-	<head>
-	  <link rel="stylesheet" type="text/css" href="simple.css">
-	</head>
+	<br>
 	<div class="header">
-	  <p>
-		<!-- `<center>` is required because paragraphs are left-aligned by CSS. -->
-		  <center>
-			<a href="index.html">BLOG</a>&emsp;
-			<a href="resume.html">RESUME</a>&emsp;
-			<a href="portfolio.html">PORTFOLIO</a>&emsp;
-			ARTWORK&emsp;
-			<a href="init.el.txt"><tt>init.el</tt></a>&emsp;
-			<a href="https://github.com/Cons-Cat">GitHub</a>&emsp;
-			<a href="https://www.youtube.com/user/TheSaberlord">YouTube</a>
-		  </center>
-	  </p>
+	  <a href="index.html">BLOG</a>&emsp;
+	  <a href="resume.html">RESUME</a>&emsp;
+	  <a href="portfolio.html">PORTFOLIO</a>&emsp;
+	  ARTWORK&emsp;
+	  <a href="init.el.txt"><tt>init.el</tt></a>&emsp;
+	  <a href="https://github.com/Cons-Cat">GitHub</a>&emsp;
+	  <a href="https://www.youtube.com/user/TheSaberlord">YouTube</a>
 	</div>
 	<br>
 
@@ -28,7 +25,7 @@
 		<div>February 11, 2022</div>
 	  </i>
 	  <i>
-		<div>858 words</div>
+		<div>874 words</div>
 	  </i>
 	</div>
 	<div class="block">
@@ -51,17 +48,17 @@
 		&emsp;My blog is written in HTML, without a content management system, static site generator, or JavaScript components. I have authored CSS, but it is not responsible for the structure of text anywhere in my website. For that reason, it is completely reasonable to browse my blog with a pure HTML renderer. I think that it is unfortunate the Internet is reasoned about in terms of <i>content</i> and <i>style</i>, rather than <i>text</i> and <i>graphics</i>, for otherwise effects such as the drop shadow you might be seeing would be orthogonal to the layout of text. An unsophisticated web browser would be completely reasonable for browsing any static website, unlike status quo.
 	  </p>
 	  <p>
-		&emsp;That there are practically only three supposedly-modern web browsing engines is slightly appalling to me. How can a society allow itself to become so deeply dependent on a technology that some human, or a small team of humans, couldn't possibly reproduce? The SerenityOS web browser is an interesting project, but I doubt that it will ever achieve <i>actual</i> feature parity with Firefox's renderer and runtimes, even if you exclude Shockwave Flash. That is not to mention whichever future features Firefox will have, after WebGPU is considered boring and W3C thinks up something new. WebKit is generally considered vastly inferior to Chromium or Firefox, and Firefox has been steadily losing market-share now. Microsoft recently abandoned their own browser engine, which was once accused of monopolizing the browser space, and it seems to me that we are converging onto a browser monoculture.
+		&emsp;That there are, practically, only three supposedly-modern web browsing engines is slightly appalling to me. How can a society allow itself to become so deeply dependent on a technology that some human, or a small team of humans, couldn't possibly reproduce? This seems deeply ominous to me. The SerenityOS web browser is an interesting project, but I doubt that it will ever achieve <i>actual</i> feature parity with Firefox's renderer and runtimes, even if you exclude Shockwave Flash. That is not to mention whichever future features Firefox will have, after WebGPU is considered stable and W3C thinks up of something new. WebKit is generally considered very inferior to Chromium or Firefox, and Firefox has been steadily losing market-share to Chromium. Microsoft recently abandoned their own web browser engine, which was once accused of monopolizing the browser space, and it seems to me that we are converging onto a monoculture around Chromium.
 	  </p>
 	  <p>
-		&emsp;I am often browsing my blog, and editing it, using the <a href="https://en.wikipedia.org/wiki/Eww_(web_browser)">Emacs Web Wowser</a>. This is a pure HTML browser which, due to some challenging problems with GNU Emacs' renderer, is not a feature-complete HTML renderer. Still, it is a reasonable interface to this website, and I have found that many GNU Emacs users value the simplicity and elegance of pages that can be used in  a low-technology manner. I believe that this website could be usable in a world where silicon is scarce, the ozone layer nearly vanished, and Chromium simply cannot run on whichever computers the desperate vestiges of humanity have fished out of the ocean, or have dug out from landfills.
+		&emsp;I am often browsing my blog, and editing it, using the <a href="https://en.wikipedia.org/wiki/Eww_(web_browser)">Emacs Web Wowser</a>. This is a pure HTML browser which, due to some challenging problems in GNU Emacs, is not a feature-complete HTML renderer. Still, it is a reasonable interface to this website, and I have found that many GNU Emacs users value the simplicity and elegance of pages that can be used in a low-technology manner. I believe that this website could be usable without high-technology renderers and Javascript runtimes, or even a decent CSS renderer (although, evidently, HTML and CSS renderers <i>can</i> be <a href="https://github.com/mikke89/RmlUi">reproduced</a>).
 	  </p>
 	  <p>
-		&emsp;I cannot solve any monumental problems in the web-space, obviously, but I can improve the state of its alternatives. As Mike Acton said, "the problem is the problem", and for any real problem that people have in the world, such as the need to compute profit margins or edit an essay, the solution is (sometimes) a computer program. It's not a JavaScript applet, it's a <i>computer program</i>. Whether that is or is not a JavaScript applet is an orthogonal concern, but I should like to remember that the technologies I use is not what a problem is, what my software actually does is the problem. To realize what a problem actually is, I find the Socratic Method helpful. For any action I consider, I ask why I must do this. The answer usually raises another question, and in descending through a sequence of increasingly lower-level questions, eventually I find a sufficiently basic insight. Mike Acton's <a href="https://www.gdcvault.com/play/1025778/Everyone-Watching-This-Is">fifty questions</a> seem like a good place to start.
+		&emsp;I cannot solve any monumental problems in the web-space, obviously, but I can help improve the state of its alternatives. As Mike Acton said, "the problem is the problem", and for any real problem that people have in the world, such as the need to compute profit margins or edit an essay, the solution is (sometimes) a computer program. It's not a JavaScript applet, it's a <i>computer program</i>. Whether that program is or is not a JavaScript applet is a separate concern, but I should like to remember that the technologies I choose isn't the problem semantics, what my software actually does is the problem semantics. To realize what a problem actually is, I find the Socratic Method helpful. For any technical decision I consider, I try to ask why I must do it. The answer usually raises another question, and in descending through a sequence of increasingly lower-level questions, eventually I find a sufficiently basic insight. Mike Acton's <a href="https://www.gdcvault.com/play/1025778/Everyone-Watching-This-Is">fifty questions</a> seem like some good start points.
 	  </p>
 	  <p>
-		&emsp;So far, I have never found that basic insight to be, "Because I must use Python."
+		&emsp;I don't want to assume something dogmatic, like Javascript can't ever be the best solution to some given problem, but I haven't <i>personally</i> found a problem that fundamentally requires a web-applet or Python script so far.
 	  </p>
 	</div>
-	</center>
+  </center>
 </html>

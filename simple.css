@@ -15,7 +15,7 @@ p {
 
 /* This is identicle to `.block`, except for its width and line-height. */
 .header {
-	max-width: 900px;
+	max-width: 850px;
 	line-height: 1.3;
 	background: white;
 	border-radius: 8px;

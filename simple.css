@@ -9,6 +9,17 @@
 	margin-bottom: 20px;
 }
 
+.code-block {
+	max-width: 580px;
+	line-height: 1.6;
+	border-radius: 8px;
+	/* box-shadow: 0px 40px 100px #EFEFEF; */
+    box-shadow: 0px 15px 30px #E4E4E4;
+	padding: 1px 20px;
+	background: white;
+	margin-bottom: 20px;
+}
+
 p {
 	text-align: left;
 }

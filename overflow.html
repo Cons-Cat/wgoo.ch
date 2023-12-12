@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+  <head>
+	<link rel="stylesheet" type="text/css" href="simple.css">
+  </head>
+
+  <center>
+	<br>
+	<div class="header">
+	  <a href="index.html">BLOG</a>&emsp;
+	  <a href="resume.html">RESUME</a>&emsp;
+	  <a href="portfolio.html">PORTFOLIO</a>&emsp;
+	  <a href="gallery.html">GALLERY</a>&emsp;
+	  <a href="init.el.txt"><tt>init.el</tt></a>&emsp;
+	  <a href="https://github.com/Cons-Cat">GitHub</a>&emsp;
+	  <a href="https://www.youtube.com/user/TheSaberlord">YouTube</a>
+	</div>
+	<br>
+
+	<div class="block" align="left">
+	  <font size="6">
+		libCat Arithmetic Wrappers
+	  </font>
+	  <i>
+		<div>November 25, 2022</div>
+	  </i>
+	  <i>
+		<div>1,887 words</div>
+	  </i>
+	</div>
+	<div class="block">
+	  <p>
+		&emsp;For very nearly a year now, I've been exploring new ways that I can use C++ through <a href="https://github.com/cons-cat/libCat">libCat</a>. This article doesn't discuss what libCat does, which is a lot. I recently held my second lecture on libCat <a href="https://youtu.be/BrBb0mqoIAc">covering some of that</a>. tl;dw it's a non-POSIX runtime for Linux using modern C++ to provide faster compile times than an STL, safer APIs than POSIX or libC, and more explicit (and potentially performant) memory and error handling, among many other features. It is so unusual that it is fundamentally incompatible with the STL or libC (there is no <tt>malloc()</tt> or pthreads), so it presents an opportunity to rethink <i>everything</i>.
+	  </p>
+	  <p>
+		&emsp;One of the first ideas I had was type-safe arithmetic wrappers, which have been explored in C++ before, but mine would be used <i>all the way down</i> to Linux syscalls and Vulkan Loader calls. Many ideas in libCat are not strictly new, but the existing libraries for arithmetic, allocation, error handling, etc. are hard to use when they are merely layered on top of decades' worth of C and C++ code. Also, while other type-safe arithmetic libraries exist, such as <a href="https://github.com/foonathan/type_safe/">type-safe</a> and <a href="https://github.com/twig-energy/stronk">stronk</a>, both very cool, none that I can find so far do <i>everything</i> I want and how I want to do it.
+	  </p>
+	  <p>
+		&emsp;Explicit arithmetic overflow semantics have been explored to some extent in C++. For the unaware, when an integer overflows or underflows, the behavior to expect isn't obvious. There are broadly four different semantics you might want:
+	  </p>
+	  <div align="left">
+		<ul>
+		  <li>Undefined overflow, such as in Carbon or Zig, which allows a compiler to assume overflow does not exist, and make aggressive optimizations.</li>
+		  <br>
+		  <li>Wrapping overflow, such as in unsigned integers in C. This is the most obvious behavior for unsigned or two's complement binary arithmetic.</li>
+		  <br>
+		  <li>Saturating overflow, such as the <tt>+|</tt> operator in Zig. Overflow saturates to the upper or lower bounds that an integer can represent. This was proposed for C++ in <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p0543r2.html">p0543</a>.</li>
+		  <br>
+		  <li>Trapping overflow, such as in Rust (unless compiled for releases, in which case it wraps). This causes a program to crash or otherwise error when arithmetic overflow occurs. You can get this in C++ using <tt>-ftrapv</tt>, or with ubsan (including unsigned integers using <tt>-fsanitize=unsigned-integer-overflow</tt>).</li>
+		</ul>
+	  </div>
+	  <p>
+		&emsp;p0543 suggested adding free functions for saturating arithmetic. That paper targets both C and C++, and argues that type-safe arithmetic seems "slightly over-engineered." More recently, the <a href="https://www.foonathan.net/2022/03/behavior-function-type/">original author of type-safe argues</a> that additional arithmetic types are "strictly more powerful". It is easy to imagine a library implementing arithmetic types in terms of free functions, providing both APIs where they are useful.
+	  </p>
+	  <p>
+		&emsp;I for one am dissatisfied by either solution. In the Zig language, arithmetic and bitwise operators have suffixes for their overflow semantics. <tt>255 + 1</tt> has undefined behavior, but <tt>255 +% 1</tt> has wrapping semantics, and <tt>255 +| 1</tt> has saturating semantics. I love this syntax (Swift uses <tt>&+</tt> for its wrapping, which is also nice). It seems unlikely to me that C++ will have such syntax any time soon. The only fairly recent mention of this that I have found is in <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0907r4.html">p0907</a>, which defined signed integers as two's complement in C++20, and mentioned explicit overflow operators as "out of scope" for that paper.
+	  </p>
+	  <p>
+		&emsp;The most convenient syntax I can think of for this in C++ is member-access. Imagine this:
+	  </p>
+	</div>
+	<div class="code-block" align="left">
+	  <code><pre>
+// 4 byte signed integer holding 2'147'483'647
+int4 num = int4_max;
+
+// Add 100 with saturating overflow semantics.
+(num.sat + 100) == int4_max;
+
+// Add 100 with wrapping overflow semantics.
+(num.wrap + 100) == int4_min + 99;
+
+// Add 100 with undefined overflow semantics.
+num + 100;</pre>
+	  </code>
+	</div>
+	<div class="block">
+	  <p>
+		&emsp;This is the syntax that is available right now in libCat. You might notice <tt>int4</tt> instead of <tt>int32_t</tt> or <tt>i32</tt> or something familiar. Personally, when writing SIMD code in libCat, I found mixing bits and lanes to be very confusing, and since bytes is the quantity I almost always care about, my arithmetic types are named <tt>int4</tt>, <tt>uint8</tt>, <tt>float4</tt>, <tt>int4x8</tt> (a SIMD vector), etc. I'm not going to discuss the SIMD API in this article.
+	  </p>
+	  <p>
+		&emsp;There are also free functions and types with explicit overflow. Types with explicit overflow also support the member-access overflow syntax, so you might write:
+	  </p>
+	</div>
+	</div>
+	<div class="code-block" align="left">
+	  <code><pre>
+// 4 byte signed integer holding 2'147'483'647
+wrap_int4 num = int4_max;
+
+// Add 100 with wrapping overflow semantics.
+(num + 100) == int4_min + 99;
+
+// Add 100 with saturating overflow semantics.
+(num.sat + 100) == int4_max;</pre>
+	  </code>
+	</div>
+	<div class="block">
+	  <p>
+		&emsp;These types are all trivial classes, and they are usable as non-type template parameters. My unsigned integers have undefined overflow by default, as well, like signed integers. You can also access the underlying C type through a <tt>.raw</tt> member on each of these. The members are all in a union, so they share the same storage and are perfectly interchangeable.
+	  </p>
+	  <p>
+		&emsp;For reasons unknown to me, <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0593r5.html#type-punning">p0593</a> declared that all members of a union shall not be implicit lifetime types, so this is undefined behavior, but <a href="https://gcc.gnu.org/onlinedocs/gcc-12.2.0/gcc/Optimize-Options.html#Type-punning">GCC explicitly permits type-punning</a> unions outside of a constexpr context, and given the free functions, explicit overflow types, and <tt>static_cast</tt>s, it is technically possible to control overflow without my member access syntax, but I will be using it in future application-level code. There are many other reasons why GCC currently seems to be the only servicable compiler for libCat, although I believe Clang also permits this particular design.
+	  </p>
+	  <p>
+		&emsp;In my research, I have continually encountered <a href="http://locklessinc.com/articles/sat_arithmetic/">this article</a> about branchless saturating arithmetic. I attempted to implement this in libCat using inline assembly, but I got stuck on its <tt>sat_adds64b()</tt> function, because that involves an 8-byte immediate value. As far as I can tell, GAS and GCC inline assembly cannot use larger than 4-byte immediate values, so this simply wasn't possible. I'm not torn up about it, though, because while examining my code in Compiler Explorer, I became skeptical that this extremely popular article is offering the best advice. To be fair, it does not claim to teach a perfect implementation.
+	  </p>
+	  <p>
+		&emsp;GCC and Clang have <a href="https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html">several intrinsics</a> for tolerating arithmetic overflow. It turns out that they optimize very nicely for saturating overflow! Now, I am not an x86 wizard, but take a look for yourself: <a href="https://godbolt.org/z/oc3Gnje9c">godbolt.com</a>
+	  </p>
+	  <p>
+		&emsp;I have a feeling that the GCC optimized code is superior.
+	  </p>
+	</div>
+	<div class="code-block" align="left">
+	  <code>
+		<pre>
+int sat_mul(int, int):
+        mov    edi,         eax
+        xor    esi,         edi
+        shr    $0x1f,       edi
+        add    $0x7fffffff, edi
+        imul   esi
+        cmovc  edi,         eax
+        retq
+
+int gcc_sat_mul<int>(int, int):
+        imul    edi, esi
+        mov     eax, 2147483647
+        cmovno  eax, edi
+        ret</pre>
+	  </code>
+	</div>
+	<div class="block">
+	  <p>
+		&emsp;I have not checked exhaustively, but many of the signed arithmetic routines seem to compare similarly. Also interesting, GCC could not constant fold the <tt>constexpr</tt> call to <tt>std::numeric_limits<int>::max()</tt>. I had to add a <tt>[[unlikely]]</tt> attribute to make it branchless, unless I made a <tt>consteval</tt> call for the maximum size instead. In libCat, the analogous function is <tt>consteval</tt> because, by my convention, anything that can be <i>is</i>. Clang actually has the opposite effect, which optimizes the code correctly, and <tt>[[unlikely]]</tt> ironically makes this <i>not</i> branchless! Portable performance seems tricky. Using a ternary operator instead of an if statement appears to have no effect on these under <tt>-O0</tt> or <tt>-O3</tt>.
+	  </p>
+	  <p>
+		&emsp;One C++ library that provides arithmetic wrappers and free functions for saturating arithmetic is <a href="https://github.com/StefanHamminga/saturating">saturating</a>. It works like this: <b><a href="https://github.com/StefanHamminga/saturating/blob/master/functions.hpp">functions.hpp</a></b>.
+	  </p>
+	  <p>
+		&emsp;Whoa.
+	  </p>
+	  <p>
+		&emsp;I don't want to critique another cat's templates. Some things are sacred, man! But I'm having a hard time comprehending this. One interesting feature is that it supports saturating floating-point arithmetic. That concept sounds generally nonsense, but here it's a bit of a misnomer. This library actually supports automatically normalizing floating-point arithmetic, i.e., after every operation, the value holds between the range of <tt>-1.0</tt> and <tt>1.0</tt>. This seems similar to HLSL's <tt>snorm</tt> and <tt>unorm</tt> floating-point qualifiers. libCat currently does not have such a data type.
+	  </p>
+	  <p>
+		&emsp;x86-64 also has instructions for <a href="https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=saturate">saturating SIMD</a>, but they are only used for small integer arithmetic.
+	  </p>
+	  <p>
+		&emsp;Anyways, a caveat to <tt>__builtin_add_overflow()</tt> is that its two arguments must be the same type, and they must be primitive integral types. So libCat's type-safe arithmetic must be unwrapped before passed into the intrinsic, and arguments must be casted to the same type. This is straightforward to implement in a library so long as you understand <tt>std::conditional</tt>-based metaprogramming, type deduction, type erasure, concepts, and atomic constraints. Purely trivial stuff, am I right?
+	  </p>
+	</div>
+	<div class="code-block" align="left">
+	  <code><pre>
+// Add two integers with saturating overflow.
+template &lt;is_raw_integral T&gt;
+[[nodiscard, gnu::optimize(2)]] constexpr auto sat_add(T lhs, T rhs) -&gt; T {
+    T sum;
+    bool overflow = __builtin_add_overflow(lhs, rhs, &sum);
+    if (overflow) {
+        return Limits&lt;T&gt;::max();
+    }
+    return sum;
+}
+
+// Erase redundant type information for `sat_add()`.
+template &lt;is_integral T, is_integral U&gt;
+    requires(is_safe_comparison&lt;T, U&gt;)
+[[nodiscard]] constexpr auto sat_add(T lhs, U rhs)
+    -&gt; detail::PromotedArithmetic&lt;T, U&gt; {
+    // Saturating arithmetic inputs must be raw and cast to the same size.
+    using Type = ToRawArithmetic&lt;Larger&lt;T, U&gt;;tg&;
+    return sat_add(static_cast&lt;Type&gt;(lhs), static_cast&lt;Type&gt;(rhs));
+}</pre>
+	  </code>
+	</div>
+	<div class="block">
+	  <p>
+		&emsp;I also have type-safe <tt>intptr</tt> and <tt>uintptr</tt> wrappers. These are kind of like <tt>intptr_t</tt> in libC, except that their type remembers which type it came from, and it can only cast back into its original type, not any other sort of pointer. This prevents a kind of undefined behavior that is very easy to write in C, and I've been bitten by weird optimizations around <tt>reinterpret_cast</tt> before, myself.
+	  </p>
+	  <p>
+		&emsp;These are considered arithmetic types for the purposes of libCat <tt>concept</tt> programming, but they have a pawful of limitations compared to normal arithmetic, including they do not support member-access overflow syntax. It would be too complicated to implement that, which I do not believe I will <i>ever</i> use, but when GCC supports "deducing this", it should be very simple to streamline away around 200 lines from my <tt>intptr</tt> implementation and almost automatically get that overflow syntax for free.
+	  </p>
+	  <p>
+		&emsp;Part of what I love about <tt>concept</tt>s is that they make expressing generic constraints very elegant. libCat does not have separate containers for floating point and integral wrappers, as many other libraries do. They are mostly similar types, but floats just have some extra constraints.
+	  </p>
+	  <p>
+		&emsp;For defining a constraint on the safe comparison or conversion between two arithmetic types, I evaluate if a left-hand type is the same size or larger than an operand, if they have the same signed-ness (i.e. no adding unsigned values to signed integers or vice versa), and the same float-ness (no adding ints to floats or vice-versa). For that, I have:
+	  </p>
+	</div>
+	<div class="code-block" align="left">
+	  <code><pre>
+template &lt;is_arithmetic From, is_arithmetic To&gt;
+inline constexpr bool is_safe_comparison =
+    // `ToRawArithmetic` is needed here to prevent a recursive constraint
+    // in evaluating the `&lt;` operator.
+    ((is_signed&lt;ToRawArithmetic&lt;From&gt;&gt; == is_signed&lt;ToRawArithmetic&lt;To&gt;&gt;)) &&
+    (is_floating_point&lt;From&gt; == is_floating_point&lt;To&gt;);
+
+// Any arithmetic can safely convert to a type larger than itself, but not
+// smaller than itself.
+template &lt;is_arithmetic From, is_arithmetic To&gt;
+inline constexpr bool is_safe_conversion = (sizeof(From) &lt;= sizeof(To)) &&
+                                           (is_safe_comparison&lt;From, To&gt;);</pre>
+	  </code>
+	</div>
+	<div class="block">
+	  <p>
+		&emsp;Expressing type promotion between integers and floats simultaneously isn't much more complicated. Adding an <tt>int4</tt> to an <tt>intptr</tt> should produce an <tt>intptr</tt>, since that type holds the most information. Otherwise, I just select the larger type, and default to left-hand-side. No other considerations are necessary because the previously mentioned constraints prevent other possibilities.
+	  </p>
+	</div>
+	<div class="code-block" align="left">
+	  <code><pre>
+template &lt;typename T, typename U&gt;
+consteval auto promoted_arithmetic() {
+    if constexpr (is_arithmetic_ptr&lt;T&gt;) {
+        return T{};
+    } else if constexpr (is_arithmetic_ptr&lt;U&gt;) {
+        return U{};
+    } else {
+        if constexpr (sizeof(T) &gt;= sizeof(U)) {
+            return Arithmetic&lt;ToRawArithmetic&lt;T&gt;, OverflowPolicies::undefined&gt;{}
+        } else {
+            return Arithmetic&lt;ToRawArithmetic&lt;U&gt;, OverflowPolicies::undefined&gt;{}
+        }
+    }
+}
+
+template &lt;typename T, typename U&gt;
+    requires((is_signed&lt;T&gt; == is_signed&lt;U&gt;) && (is_floating_point&lt;T&gt; ==
+                                                is_floating_point&lt;U&gt;))
+using PromotedArithmetic = decltype(promoted_arithmetic&lt;T, U&gt;());</pre>
+	  </code>
+	</div>
+	<div class="block">
+	  <p>
+		&emsp;One cool feature in GCC and Clang is you can get explicit-width primitive types without libC. Instead of <tt>std::int32_t</tt>, there is an automatically compiler-defined macro <tt>__INT32_TYPE__</tt> which removes all guesswork. This type is set by a compiler, not by a library, as Celestia intended. I use these macros to define the underlying type of all my arithmetic aliases, such as:
+		</p>
+	</div>
+	<div class="code-block" align="left">
+	  <code><pre>
+using int4 = Arithmetic<__INT32_TYPE__, OverflowPolicies::undefined>;</pre>
+	  </code>
+	  </div>
+	<div class="block">
+	  <p>
+		&emsp;There are many other templates involved, but those are the most interesting ones, in my opinion.
+	  </p>
+	  <p>
+		&emsp;So yeah, those are my ideas for safe and ergonomic arithmetic in C++. I'm not married to anything in libCat, and welcome any feedback, especially comparisons to prior art that I haven't encountered yet.
+	  </p>
+	</div>
+</center>
+</html>

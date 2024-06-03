@@ -5,13 +5,10 @@
   </head>
 
   <center>
-	<br>
-	<div class="header">
-	  <a href="index.html">BLOG</a>&emsp;
-	  <a href="resume.html">RESUME</a>&emsp;
-	  <a href="portfolio.html">PORTFOLIO</a>&emsp;
-	  <a href="gallery.html">GALLERY</a>&emsp;
-	  <a href="init.el.txt"><tt>init.el</tt></a>&emsp;
+    <div class="menu-bar">
+	  <a href="index.html">RESUME</a>&emsp;
+      <a href="portfolio">PORTFOLIO</a>&emsp;
+	  <a href="gallery">GALLERY</a>&emsp;
 	  <a href="https://github.com/Cons-Cat">GitHub</a>&emsp;
 	  <a href="https://www.youtube.com/user/TheSaberlord">YouTube</a>
 	</div>
